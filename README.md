@@ -22,10 +22,10 @@ We're going to put some load on the application with a [custom](https://github.c
 
 Custom `plt` has additional parameters:
 
-* `cardinality` - number of unique URLs to be generated, this affects cache hit rate,
-* `group` - number of requests with similar URL being sent at once, this imitates concurrent access to the same key.
+- `cardinality` - number of unique URLs to be generated, this affects cache hit rate,
+- `group` - number of requests with similar URL being sent at once, this imitates concurrent access to the same key.
 
-```
+```sh
 go run ./cmd/cplt --cardinality 10000 --group 100 --live-ui --duration 10h --rate-limit 5000 curl --concurrency 200 -X 'GET'   'http://127.0.0.1:8008/hello?name=World&locale=ru-RU'   -H 'accept: application/json'
 ```
 
@@ -37,14 +37,14 @@ It will show live performance statistics and overall results.
 
 Demo app has three modes of operation controlled by `CACHE` environment variable:
 
-* `none` - no caching, all requests are served with involvement of the database,
-* `naive` - naive caching with a simple map and TTL of 3 minutes,
-* `advanced` - caching using [`github.com/bool64/cache`](https://github.com/bool64/cache) library that implements a
+- `none` - no caching, all requests are served with involvement of the database,
+- `naive` - naive caching with a simple map and TTL of 3 minutes,
+- `advanced` - caching using [`github.com/bool64/cache`](https://github.com/bool64/cache) library that implements a
   number of features to improve performance and resiliency, TTL is also 3 minutes.
 
 Application is available at [github.com/vearutop/cache-story](https://github.com/vearutop/cache-story).
 If you would like to experiment yourself with it, you can start it with `make start-deps run`.
-It depends on `docker-compose` to spin up database, prometheus, grafana (http://localhost:3001) and jaeger (http://localhost:16686/). You can stop dependencies with `make stop-deps` later.
+It depends on `docker-compose` to spin up database, prometheus, [grafana](http://localhost:3001) and [jaeger](http://localhost:16686/). You can stop dependencies with `make stop-deps` later.
 
 On my machine I was able to achieve ~500 RPS with no cache. After ~130 concurrent requests DB starts choking with `Too many connections`. Such result is not great, not terrible, but looks like an improvement opportunity.
 Let's see what we can achieve with help of caching.
@@ -55,11 +55,11 @@ With `advanced` cache same laptop was able to show these results (roughly 60x th
 
 ![Advanced Performance](./resources/screenshots/advanced.png)
 
-```
-go run ./cmd/cplt --cardinality 10000 --group 100 --live-ui --duration 10h curl --concurrency 100 -X 'GET'   'http://127.0.0.1:8008/hello?name=World&locale=ru-RU'   -H 'accept: application/json'
+```sh
+go run ./cmd/cplt --cardinality 10000 --group 100 --live-ui --duration 10h curl --concurrency 100 -X 'GET' 'http://127.0.0.1:8008/hello?name=World&locale=ru-RU' -H 'accept: application/json'
 ```
 
-```
+```sh
 Requests per second: 25064.03
 Successful requests: 15692019
 Time spent: 10m26.078s
@@ -77,25 +77,25 @@ Which one is better?
 
 That depends on the use case, byte cache (or storing data as `[]byte`) have some advantages:
 
-* it grants immutability, because you'll need to decode a new value every time you need it,
-* it generally takes less memory, because of less fragmentation,
-* it is more friendly to garbage collector, because there is nothing to traverse through,
-* it can be easily sent over the wire, because it is exactly what wire expects,
-* allows precise memory limit, bytes are so easy to count.
+- it grants immutability, because you'll need to decode a new value every time you need it,
+- it generally takes less memory, because of less fragmentation,
+- it is more friendly to garbage collector, because there is nothing to traverse through,
+- it can be easily sent over the wire, because it is exactly what wire expects,
+- allows precise memory limit, bytes are so easy to count.
 
 Main disadvantage is the cost of encoding and decoding. In hot loops it can become prohibitively expensive.
 
 Advantages of structures:
 
-* no need to encode/decode a value every time you need it,
-* better expressiveness as you can potentially cache things that can not be serialized,
+- no need to encode/decode a value every time you need it,
+- better expressiveness as you can potentially cache things that can not be serialized,
 
 Disadvantages of structure cache:
 
-* mutability, because you reuse same value multiple times it is quite easy to change it without intention,
-* memory usage, structures take relatively sparse areas of memory,
-* garbage collector pressure, if you have a large set of long-living structures, GC may spend significant time traversing them and proving they are still in use,
-* nearly impossible to impose a total memory limit on a cache instance, dynamically-sized items are stored on the heap together with everything else.
+- mutability, because you reuse same value multiple times it is quite easy to change it without intention,
+- memory usage, structures take relatively sparse areas of memory,
+- garbage collector pressure, if you have a large set of long-living structures, GC may spend significant time traversing them and proving they are still in use,
+- nearly impossible to impose a total memory limit on a cache instance, dynamically-sized items are stored on the heap together with everything else.
 
 In this article we will use structure cache.
 
@@ -119,7 +119,7 @@ If some of those builds fail, parent callers will fail even though there might b
 
 The issue can be simulated by using low cardinality with high grouping, so that many similar requests are sent at once.
 
-```
+```sh
 go run ./cmd/cplt --cardinality 100 --group 1000 --live-ui --duration 10h --rate-limit 5000 curl --concurrency 150 -X 'GET'   'http://127.0.0.1:8008/hello?name=World&locale=ru-RU'   -H 'accept: application/json'
 ```
 
@@ -155,7 +155,7 @@ If expiration jitter is 10% (0.1) it means TTL will vary from `0.95 * TTL` to `1
 
 Here is an example, we're pushing load with high cardinality and high concurrency on the service. It will require many entries to be available in short period of time, enough to form an expiration spike.
 
-```
+```sh
 go run ./cmd/cplt --cardinality 10000 --group 1 --live-ui --duration 10h --rate-limit 5000 curl --concurrency 200 -X 'GET' 'http://127.0.0.1:8008/hello?name=World&locale=ru-RU' -H 'accept: application/json'
 ```
 
@@ -265,11 +265,11 @@ Transfer can be done with HTTP or any other suitable protocol. In this example, 
 
 For sake of this example, we can perform transfer with help of a separate instance of an application serving on a different port.
 
-```
+```sh
 CACHE_TRANSFER_URL=http://127.0.0.1:8008/debug/transfer-cache HTTP_LISTEN_ADDR=127.0.0.1:8009 go run main.go
 ```
 
-```
+```sh
 2022-05-09T02:33:42.871+0200    INFO    cache/http.go:282       cache restored  {"processed": 10000, "elapsed": "12.963942ms", "speed": "39.564084 MB/s", "bytes": 537846}
 2022-05-09T02:33:42.874+0200    INFO    brick/http.go:66        starting server, Swagger UI at http://127.0.0.1:8009/docs
 2022-05-09T02:34:01.162+0200    INFO    cache/http.go:175       cache dump finished     {"processed": 10000, "elapsed": "12.654621ms", "bytes": 537846, "speed": "40.530944 MB/s", "name": "greetings", "trace.id": "31aeeb8e9e622b3cd3e1aa29fa3334af", "transaction.id": "a0e8d90542325ab4"}
@@ -299,8 +299,8 @@ Another popular approach to reduce lock contention is map sharding ([fastcache](
 
 Memory is a limited resource, so cache should not grow indefinitely.
 
-Expired items should eventually be removed from the cache. 
-This can be done synchronously or in background. Background janitor is a good idea, because it will not block the application. 
+Expired items should eventually be removed from the cache.
+This can be done synchronously or in background. Background janitor is a good idea, because it will not block the application.
 Also, background janitor can be configured to remove items with a delay, so that expired value is still available as a failover backup.
 
 Removing expired items might be not enough to keep memory usage under control.
@@ -308,10 +308,11 @@ There are [different strategies](https://en.wikipedia.org/wiki/Cache_replacement
 When deciding on a strategy you should find a balance between CPU/memory usage and hit/miss ratio. Ultimately, goal of eviction is to optimize hit/miss ratio while remaining in acceptable performance budget, so this is the metric you need to look at when evaluating eviction strategies.
 
 Here are some popular criteria to pick an item:
- * least-frequently used (LFU), relatively expensive as it needs to maintain counters that should be updated on every access,
- * least-recently used (LRU), relatively expensive as it needs to update item timestamps or reorder the list of keys on every access,
- * first in first out (FIFO), relatively cheap as it can use values that are populated once item cache is created,
- * random item, most performant, does not need any kinds of sorting, the least accurate.
+
+- least-frequently used (LFU), relatively expensive as it needs to maintain counters that should be updated on every access,
+- least-recently used (LRU), relatively expensive as it needs to update item timestamps or reorder the list of keys on every access,
+- first in first out (FIFO), relatively cheap as it can use values that are populated once item cache is created,
+- random item, most performant, does not need any kinds of sorting, the least accurate.
 
 I would suggest to evaluate FIFO and random eviction first, and only invest in LRU/LFU if it has proven significant impact on hit/miss ratio.
 
@@ -322,14 +323,15 @@ This is a trivial question for `[]byte` cache, most of the implementations provi
 The question is tricky for structure cache. There is no feasible and reliable way to determine impact of a particular structure on the heap memory usage during application execution, this information may be available to GC, but not to the application itself.
 
 Two less precise, but still useful, metrics are:
- * total count of items in the cache,
- * total memory usage of the whole application.
+
+- total count of items in the cache,
+- total memory usage of the whole application.
 
 Both metrics can be easily obtained during application execution, and then lead to eviction.
 Because these metrics are not linearly proportional to cache memory usage, they can not be used to calculate the exact list of items to evict.
 An appropriate response would be to evict a configurable fraction of the items (for example 10% of the items), once eviction is triggered.
 
-Heap impact of cached data largely depends on mapping implementation. 
+Heap impact of cached data largely depends on mapping implementation.
 As you can see from the benchmark below, `map[string]struct{...}` may have 4x memory consumption compared to efficient binary serialization (uncompressed).
 
 ### Baseline Benchmark
@@ -337,22 +339,22 @@ As you can see from the benchmark below, `map[string]struct{...}` may have 4x me
 Here is a baseline benchmark for storing 1M small structures (`struct { int, bool, string }`) and accessing them with 10% and 0.1% writes.
 Byte caches are instrumented with binary de/encoder of structure.
 
-```
+```sh
 goos: darwin
 goarch: amd64
 cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 ```
 
-```
-name             MB/inuse   time/op (10%) time/op (0.1%)      
+```sh
+name             MB/inuse   time/op (10%) time/op (0.1%)
 sync.Map         192 ± 0%   142ns ± 4%    29.8ns ±10%   // Great for read-heavy workloads.
-shardedMap       196 ± 0%   53.3ns ± 3%   28.4ns ±11%   
-mutexMap         182 ± 0%   226ns ± 3%    207ns ± 1%    
+shardedMap       196 ± 0%   53.3ns ± 3%   28.4ns ±11%
+mutexMap         182 ± 0%   226ns ± 3%    207ns ± 1%
 rwMutexMap       182 ± 0%   233ns ± 2%    67.8ns ± 2%   // RWMutex perf degrades with more writes.
-shardedMapOf     181 ± 0%   50.3ns ± 3%   27.3ns ±13%   
+shardedMapOf     181 ± 0%   50.3ns ± 3%   27.3ns ±13%
 ristretto        346 ± 0%   167ns ± 8%    54.1ns ± 4%   // Failed to keep full working set, ~7-15% of the items are evicted.
 xsync.Map        380 ± 0%   31.4ns ± 9%   22.0ns ±14%   // Fastest, but a bit hungry for memory.
-patrickmn        184 ± 0%   373ns ± 1%    72.6ns ± 5%   
+patrickmn        184 ± 0%   373ns ± 1%    72.6ns ± 5%
 bigcache         340 ± 0%   75.8ns ± 8%   72.9ns ± 3%   // Byte cache.
 freecache        333 ± 0%   98.1ns ± 0%   77.8ns ± 2%   // Byte cache.
 fastcache       44.9 ± 0%   60.6ns ± 8%   64.1ns ± 5%   // A true champion for memory usage, while having decent performance.
@@ -374,7 +376,7 @@ For that, consider having a special control to invalidate all cached items.
 Under heavy load invalidation does not necessarily mean "deletion", if all cache is deleted at once data sources will receive excessive load and may fail.
 A more gentle invalidation is "expiration" of all items with background update, while serving stale data.
 
-Cache entry can become outdated and would mislead if somebody is investigating particular data source issues. It is convenient to disable cache for a particular request, so that cache inaccuracy can be ruled out. This may be implemented with a special header and then [context instrumentation](https://pkg.go.dev/github.com/bool64/cache#SkipRead) in middleware. Please be aware that such controls should not be available for public users as they can be used as for DOS attack. 
+Cache entry can become outdated and would mislead if somebody is investigating particular data source issues. It is convenient to disable cache for a particular request, so that cache inaccuracy can be ruled out. This may be implemented with a special header and then [context instrumentation](https://pkg.go.dev/github.com/bool64/cache#SkipRead) in middleware. Please be aware that such controls should not be available for public users as they can be used as for DOS attack.
 
 Fine control over logs and metrics of cache operations/state is also important.
 
